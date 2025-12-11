@@ -5,4 +5,4 @@ game-server/export/
 web-client/export/
 # Logs
 ops/nginx/*.log
-
+branches.txt
