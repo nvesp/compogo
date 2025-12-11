@@ -1,0 +1,8 @@
+# Godot cache
+**/.godot/
+# Export builds
+game-server/export/
+web-client/export/
+# Logs
+ops/nginx/*.log
+

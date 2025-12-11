@@ -1,0 +1,15 @@
+# Validate and distribute rules
+godot/scripts/export_rules.fish
+
+# Build server (headless)
+godot/scripts/build_server.fish
+
+# Build web client (HTML5)
+godot/scripts/build_client_web.fish
+
+# Run server locally (example)
+./godot/game-server/export/server.x86_64 --headless --verbose
+
+# Serve web client locally (simple)
+python3 -m http.server -d godot/web-client/export 8080
+Then open http://localhost:8080 in browser

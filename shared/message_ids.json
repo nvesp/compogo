@@ -1,0 +1,8 @@
+{
+    "placeholder": [ 
+        "code-gen both .gd and .cs enums from json file",
+        "Envelope Format:",
+        "Standardize { id: <int>, seq: <int>, payload: <object> }",
+        "Include protocol_version exchange during handshake"
+   ]
+}

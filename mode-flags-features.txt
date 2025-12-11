@@ -1,0 +1,232 @@
+------------------------------------
+#BUILD NOTES
+------------------------------------
+
+use fish scripts (look into using bash scripts or using copies 
+of both, in case others want to build with bash scripts) 
+to validate and copy shared rules.json 
+during buildscripts so it is copied with the
+correct paths into /game-server/export and
+/web-client/export
+
+-------------------------------
+#Mode flags and feature toggles:
+-------------------------------
+ -Server modes: 
+  --headless, --enable-websocket, --max-clients, --disable-chat
+
+ -Client modes: 
+  --offline for single-player; web client ignores ENet code paths.
+
+------------------------------- 
+#Repo Structure:
+-------------------------------
+/compogo/
+  -/website/ - Website that utilizes the web-client build of the game.
+  -/godot/ - Godot hybrid gameserver and client projects
+    -/godot/game-server/ - Godot 4.5 Project (C#; headless)
+    -/godot/native-client/ - Godot project (C# uses C# server classes instead of gdscript) 
+    -/godot/web-client/ - Godot project (GDSCRIPT; HTML5 export)
+    -/godot/shared/ - Protocol schemas, constants, tests, shared json data,
+    -/godot/scripts/ - Godot build scripts, and other utility scripts. 
+  -/infra/ - CI/CD scripts, dockerfiles, compose, nginx, etc.
+-Readme.MD
+-symlinks.MD
+--------------------------------
+#Protocol definition and tests:
+--------------------------------
+ -Define: 
+  Message IDs, paields, error codes, handshake.
+
+ -Tests: 
+  Unit tests for serialization/deserialization (C# xUnit; GDScript unit tests).
+
+ -Golden samples: 
+  Store a set of JSON payloads to ensure cross-language compatibility.
+
+---------------------------------
+#Server implementation (C#)
+---------------------------------
+ -Transport: 
+  ENetMultiplayerPeer for UDP; optional WebSocketMultiplayerPeer for browser.
+
+-Services:
+ -Auth/Lobby: 
+  Optional REST/Kestrel or in-engine handlers.
+
+ -Gameplay: 
+  Authoritative validation, state snapshots, delta compression.
+
+ -Chat: 
+  Separate channel/port; sanitization.
+
+ -Async tasks: 
+  Connection polling, snapshot tick (e.g., 20–30 Hz), persistence writes.
+
+------------------------------------
+#Native client implementation (C#):
+------------------------------------
+ -Transport: 
+  ENet; implement prediction/reconciliation.
+
+ -UI: 
+  Full fidelity; debug overlays for net stats.
+
+ -Offline mode: 
+  Bypass transport; run local GameSession in single-player.
+  look into expanding offline to web-client.
+
+Look into reusing some C# server classes in
+the native client. undecided whether going to
+do the Native client with the GDscript methods
+from the webclient. 
+
+-------------------------------------
+#Web client implementation (GDscript)
+-------------------------------------
+ -Transport: 
+  WebSocketClient to server WebSocket endpoint.
+
+ -Adapters: 
+  Map WebSocket messages to the same protocol IDs and payloads.
+
+ -UI: 
+  Web-friendly controls, reduced effects, latency-tolerant UX.
+
+ -Export: 
+  HTML5 preset; test across Chrome/Firefox.
+
+---------------------------------------
+#Compatibility layer (optional proxy)
+---------------------------------------
+ -If server remains ENet-only: 
+  Implement a small proxy service (Dockerized) translating WebSocket <-> ENet to the same server port/IDs.
+
+ -Routing: 
+  Nginx or Caddy terminates TLS; routes /ws to proxy.
+
+----------------------------------------
+#Automation and deployment
+----------------------------------------
+ -Server build: 
+  Export headless Linux x86_64 binary; Dockerize with runtime deps.
+
+ -Clients: 
+  Export native binaries and web build; host web on static site or CDN.
+
+ -CI/CD: 
+  Validate protocol_version alignment; run serialization compatibility tests; auto-export and push artifacts.
+
+-----------------------------------------
+#Observability and operations
+-----------------------------------------
+ =Logging: 
+  Structured logs (Serilog) with correlation IDs per match/session.
+
+ =Metrics: 
+  Tick time, snapshot size, connected peers, dropped packets.
+
+ =Health checks: 
+  -liveness/readiness endpoints for orchestrators.
+
+ -Crash handling: 
+  Automatic restart, minidump capture.
+
+-----------------------------------------
+#Security and resilience:
+-----------------------------------------
+ -TLS: 
+  Use wss:// for WebSocket; terminate TLS at reverse proxy.
+
+ =Rate limiting: 
+  Per-IP and per-peer message caps; kick on abuse.
+
+ -Validation: 
+  Strict server-side checks for all gameplay inputs.
+
+ -Backoff: 
+  Exponential reconnection strategy in clients.
+
+-----------------------------------------
+#Rollout plan
+-----------------------------------------
+#Phase 1: 
+Single-player and native client to C# server via ENet.
+
+#Phase 2: 
+Introduce WebSocket endpoint; implement web client transport.
+
+#Phase 3: 
+Harden protocol, enable chat, add persistence.
+
+#Phase 4: 
+Scale with multiple server instances; add matchmaking/gateway.
+
+-----------------------------------------
+#Concrete implementation tips
+-----------------------------------------
+#Dual-transport server setup (C#):
+ -Ports: 
+  ENet on 12345; WebSocket on 12346.
+
+ #Mapping: 
+  Both feeds the same GameplayService; normalize message envelopes.
+ 
+ #Tick loop: 
+  Snapshot broadcast at fixed rate; delta compression per peer.
+
+#Web client transport adapter (GDScript):
+ -Envelope: 
+  { "id": MOVE, "seq": 123, "payload": { "x": 1.0, "y": 0.0 } }
+ 
+ -Handlers: 
+  Dictionary of id -> function; reuse with native client.
+ 
+ =Latency handling: 
+  Client-side interpolation; resync on authoritative snap.
+
+ -Shared constants:
+  -IDs: 
+   Keep enums synchronized; export to GDScript via generated file (simple script that writes a .gd constants file from the C# enum).
+ 
+ -Version checks: 
+  First handshake exchanges protocol_version; disconnect if mismatch with user-friendly error.
+
+-----------------------------------------
+#Suggested Dev Container and docker setup
+-----------------------------------------
+ -Server Dockerfile: 
+  Headless Godot export + runtime; expose 12345/UDP (ENet), 12346/TCP (WebSocket).
+
+ -Proxy (optional): 
+  Nginx/Caddy with TLS; routes /ws to 12346; rate limits chat endpoints.
+
+ -Compose: 
+  Services for server, proxy, and a static web host for the HTML5 client.
+
+------------------------------------------
+#Make/Fish scripts:
+------------------------------------------
+ -build: 
+  Export server, native client, web client.
+
+ -package: 
+  Create Docker images and tags with protocol_version.
+
+ -deploy: 
+  Push to registry, roll out to staging/production.
+
+-----------------------------------------
+#What you'll validate early
+-----------------------------------------
+ -Transport parity: 
+  Same gameplay over ENet and WebSocket produces identical authoritative outcomes.
+
+ -Schema stability: 
+  Changing message fields breaks tests; CI stops the build.
+
+ -Latency tolerance: 
+  Web client remains playable at 100–200 ms RTT with interpolation.
+
+ -Graceful fallback: 
+  If WebSocket is down, web client shows clear error; native client still connects via ENet.

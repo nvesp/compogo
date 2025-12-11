@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Game Rules Schema",
+  "type": "object",
+  "required": ["protocol_version", "movement", "combat"],
+  "properties": {
+    "protocol_version": {
+      "type": "number",
+      "minimum": 0.1,
+      "description": "Protocol version number for compatibility checks"
+    },
+    "movement": {
+      "type": "object",
+      "required": ["max_radius", "max_speed"],
+      "properties": {
+        "max_radius": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Maximum allowed movement radius"
+        },
+        "max_speed": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Maximum allowed movement speed"
+        }
+      },
+      "additionalProperties": false
+    },
+    "combat": {
+      "type": "object",
+      "required": ["base_damage", "critical_multiplier"],
+      "properties": {
+        "base_damage": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Base damage applied to attacks"
+        },
+        "critical_multiplier": {
+          "type": "number",
+          "minimum": 1,
+          "description": "Multiplier applied to critical hits"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

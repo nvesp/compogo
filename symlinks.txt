@@ -1,0 +1,10 @@
+Symlinks used:
+   #Symlinks for project setup
+   #use export_rules.fish to validate and copy
+   #the shared files into each builds export directory 
+   #For production builds,
+   #use these symlinks for development.
+  -~/projects/compogo/godot/shared 
+  -~/projects/compogo/godot/web-client/shared
+
+  

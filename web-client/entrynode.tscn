@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3 uid="uid://77nhg15i1tgd"]
+
+[ext_resource type="PackedScene" uid="uid://d1thmohkr4ypo" path="res://menu.tscn" id="1_gtr5e"]
+[ext_resource type="PackedScene" path="res://WORLD.tscn" id="2_xix7f"]
+
+[node name="ENTRYSCENE" type="Node2D"]
+
+[node name="MENU" parent="." instance=ExtResource("1_gtr5e")]
+
+[node name="World" parent="." instance=ExtResource("2_xix7f")]
+
+[node name="Camera2D" type="Camera2D" parent="World"]
