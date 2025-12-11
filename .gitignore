@@ -7,3 +7,4 @@ web-client/export/
 ops/nginx/*.log
 branches.txt
 .vscode/settings.json
+notes/*

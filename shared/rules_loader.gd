@@ -4,8 +4,11 @@ extends Node
 var rules = {}
 
 #Usage in client code:
+#  handle custom rules and path setting eventually
+#  RulesLoader.load_rules()
 #  if new_pos.length() <= RulesLoader.get_max_radius():
 #      player.position = new_pos
+
 
 func load_rules(path: String = "res://shared/rules.json") -> void:
     var file = FileAccess.open(path, FileAccess.READ)
