@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3 uid="uid://d1thmohkr4ypo"]
 
-[ext_resource type="Script" uid="uid://3ppgkbhywfli" path="res://node_2d.gd" id="1_wtcfe"]
-[ext_resource type="Script" uid="uid://cdhoad364d1jv" path="res://item_list.gd" id="2_ouk20"]
+[ext_resource type="Script" uid="uid://3ppgkbhywfli" path="res://scripts/node_2d.gd" id="1_wtcfe"]
+[ext_resource type="Script" uid="uid://cdhoad364d1jv" path="res://scripts/item_list.gd" id="2_ouk20"]
 
 [node name="MENU" type="Node2D"]
 script = ExtResource("1_wtcfe")
