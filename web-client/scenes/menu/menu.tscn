@@ -1,12 +1,15 @@
-[gd_scene load_steps=3 format=3 uid="uid://d1thmohkr4ypo"]
+[gd_scene load_steps=4 format=3 uid="uid://d1thmohkr4ypo"]
 
 [ext_resource type="Script" uid="uid://3ppgkbhywfli" path="res://scripts/node_2d.gd" id="1_wtcfe"]
+[ext_resource type="PackedScene" uid="uid://c27phj1iqh630" path="res://scenes/menu/1player-menu.tscn" id="2_e0arn"]
 [ext_resource type="Script" uid="uid://cdhoad364d1jv" path="res://scripts/item_list.gd" id="2_ouk20"]
 
 [node name="MENU" type="Node2D"]
 script = ExtResource("1_wtcfe")
 
-[node name="ItemList" type="ItemList" parent="."]
+[node name="1PlayerMenu" parent="." instance=ExtResource("2_e0arn")]
+
+[node name="ItemList" type="ItemList" parent="1PlayerMenu"]
 layout_direction = 1
 offset_right = 188.0
 offset_bottom = 648.0
@@ -16,4 +19,4 @@ item_0/text = "testlogin"
 item_1/text = "sendmsg"
 script = ExtResource("2_ouk20")
 
-[connection signal="item_clicked" from="ItemList" to="ItemList" method="_on_item_clicked"]
+[connection signal="item_clicked" from="1PlayerMenu/ItemList" to="1PlayerMenu/ItemList" method="_on_item_clicked"]
