@@ -108,13 +108,13 @@ jobs:
           script: |
             const target = process.env.TARGET || `${{ matrix.target }}`
             const body = `Automatic propagation of shared-protocol into ${target} failed due to merge conflicts. Please resolve manually.`
-            await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title: `Propagation conflict: shared-protocol -> ${target}`, body })
-name: Propagate shared-protocol into dev branches
-
+            await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title: `Propagation conflict: shared-protocol -> ${target}`, body })name: Propagate shared-protocol into dev branches
+            
+name: shared-protocol more propagation
 on:
   push:
     branches:
-      - shared-protocol
+      - shared-protocol           
 
 permissions:
   contents: write
@@ -219,3 +219,4 @@ jobs:
           script: |
             const body = `Automatic propagation of shared-protocol into dev branches failed due to merge conflicts. Please resolve manually.`
             await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title: 'Propagation conflict: shared-protocol', body })
+
