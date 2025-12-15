@@ -1,0 +1,49 @@
+name: Sync shared-protocol into dev branches on dev merges
+
+on:
+  push:
+    branches:
+      - client-dev
+      - server-dev
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+jobs:
+  sync-if-needed:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine whether shared-protocol is behind this branch
+        id: check
+        run: |
+          set -e
+          TARGET=${{ github.ref_name }}
+          git fetch origin shared-protocol
+          git fetch origin $TARGET
+          # if shared-protocol HEAD is not contained in the target branch, we need to propagate
+          if git merge-base --is-ancestor origin/shared-protocol origin/$TARGET; then
+            echo "up_to_date=true" >> $GITHUB_OUTPUT
+          else
+            echo "up_to_date=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create PR from shared-protocol into target if needed
+        if: steps.check.outputs.up_to_date == 'false'
+        uses: peter-evans/create-pull-request@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          base: ${{ github.ref_name }}
+          branch: shared-protocol
+          title: |
+            chore: bring ${{ github.ref_name }} up-to-date with shared-protocol
+          body: |
+            This PR was created automatically because `${{ github.ref_name }}` received new commits and is missing recent `shared-protocol` changes. Merge to bring the branch up-to-date.
+          labels: auto/sync,merge-queued
+          reviewers: nvesp

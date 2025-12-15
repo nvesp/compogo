@@ -1,0 +1,221 @@
+name: Propagate shared-protocol into dev branches
+
+on:
+  push:
+    branches:
+      - shared-protocol
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      protocol_version: ${{ steps.set_version.outputs.protocol_version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read protocol version
+        id: set_version
+        run: |
+          version=$(jq -r '.protocol_version' shared/rules.json)
+          echo "protocol_version=$version" >> $GITHUB_OUTPUT
+          echo "protocol_version=$version" >> $GITHUB_ENV
+
+      - name: Setup Node.js and install ajv
+        run: |
+          curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+          sudo apt-get install -y nodejs
+          npm install -g ajv-cli
+
+      - name: Validate rules schema (ajv)
+        run: |
+          ajv validate -s shared/rules.schema.json -d shared/rules.json
+
+      - name: Stamp version files
+        run: |
+          mkdir -p game-server/export web-client/export
+          echo "v${{ env.protocol_version }}" > game-server/export/version.txt
+          echo "v${{ env.protocol_version }}" > web-client/export/version.txt
+
+      - name: Check protocol drift
+        run: |
+          server_version=$(cat game-server/export/version.txt)
+          client_version=$(cat web-client/export/version.txt)
+          if [ "$server_version" != "v${{ env.protocol_version }}" ] || [ "$client_version" != "v${{ env.protocol_version }}" ]; then
+            echo "protocol drift detected" >&2
+            exit 1
+          fi
+
+  propagate:
+    needs: validate
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [client-dev, server-dev]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create branch merging shared-protocol into target
+        id: make_branch
+        run: |
+          set -e
+          TARGET=${{ matrix.target }}
+          BRANCH_NAME="auto/propagate/shared-protocol->${TARGET}-${{ github.run_id }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin $TARGET
+          git fetch origin shared-protocol
+          git checkout -b "$BRANCH_NAME" origin/$TARGET
+          if ! git merge --no-edit --no-ff origin/shared-protocol; then
+            git merge --abort || true
+            echo "merge_conflict=true" >> $GITHUB_OUTPUT
+            echo "failed_target=$TARGET" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          git push origin "$BRANCH_NAME"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+      - name: Create PR into target
+        uses: peter-evans/create-pull-request@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          base: ${{ matrix.target }}
+          branch: ${{ steps.make_branch.outputs.branch_name }}
+          title: |
+            chore: propagate shared-protocol v${{ needs.validate.outputs.protocol_version }} -> ${{ matrix.target }}
+          body: |
+            Auto-generated PR to merge `shared-protocol` (v${{ needs.validate.outputs.protocol_version }}) into `${{ matrix.target }}`.
+
+            This PR is intended to be merged via the repository's native merge queue after required checks pass.
+          labels: auto/propagate,merge-queued
+          reviewers: nvesp
+
+      - name: Notify on conflict
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const target = process.env.TARGET || `${{ matrix.target }}`
+            const body = `Automatic propagation of shared-protocol into ${target} failed due to merge conflicts. Please resolve manually.`
+            await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title: `Propagation conflict: shared-protocol -> ${target}`, body })
+name: Propagate shared-protocol into dev branches
+
+on:
+  push:
+    branches:
+      - shared-protocol
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+jobs:
+  validate-and-propagate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate rules and stamp protocol version
+        id: validate
+        run: |
+          set -e
+          version=$(jq -r '.protocol_version' shared/rules.json)
+          echo "protocol_version=$version" >> $GITHUB_ENV
+          # validate schema
+          if command -v ajv > /dev/null; then
+            ajv validate -s shared/rules.schema.json -d shared/rules.json
+          else
+            echo "ajv not available in runner; skipping local ajv validation"
+          fi
+          # stamp version files (same logic as scripts/build.fish:stamp_version)
+          mkdir -p game-server/export web-client/export
+          echo "v$version" > game-server/export/version.txt
+          echo "v$version" > web-client/export/version.txt
+
+      - name: Check protocol drift
+        id: drift
+        run: |
+          server_version=$(cat game-server/export/version.txt)
+          client_version=$(cat web-client/export/version.txt)
+          shared_version=$(jq -r '.protocol_version' shared/rules.json)
+          echo "server_version=$server_version" >> $GITHUB_OUTPUT
+          echo "client_version=$client_version" >> $GITHUB_OUTPUT
+          echo "shared_version=v$shared_version" >> $GITHUB_OUTPUT
+          if [ "$server_version" != "v$shared_version" ] || [ "$client_version" != "v$shared_version" ]; then
+            echo "protocol drift detected" >&2
+            exit 1
+          fi
+
+      - name: Propagate to dev branches
+        id: propagate
+        run: |
+          set -e
+          targets=(client-dev server-dev)
+          for tgt in "${targets[@]}"; do
+            BRANCH_NAME="auto/propagate/${tgt}/${{ github.run_id }}"
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git fetch origin $tgt
+            git fetch origin shared-protocol
+            git checkout -b "$BRANCH_NAME" origin/$tgt
+            if ! git merge --no-edit --no-ff origin/shared-protocol; then
+              git merge --abort || true
+              echo "Merge conflict for $tgt" >&2
+              echo "failed_target=$tgt" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+            git push origin "$BRANCH_NAME"
+            echo "pushed_branch_$tgt=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          done
+
+      - name: Create PRs for propagated branches
+        uses: peter-evans/create-pull-request@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          base: ${{ github.event.ref_name }}
+          # this action will be used per-branch by creating separate runs via inputs; using branch name expansion below
+          branch: ${{ steps.propagate.outputs.pushed_branch_client-dev }}
+          title: |
+            chore: propagate shared-protocol v${{ env.protocol_version }} -> client-dev
+          body: |
+            Auto-generated PR to merge `shared-protocol` (v${{ env.protocol_version }}) into `client-dev`.
+            This PR is intended to be merged via the repository's merge queue after required checks pass.
+          labels: auto/propagate,merge-queued
+
+      - name: Create PR for server-dev
+        if: always()
+        uses: peter-evans/create-pull-request@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          base: server-dev
+          branch: ${{ steps.propagate.outputs.pushed_branch_server-dev }}
+          title: |
+            chore: propagate shared-protocol v${{ env.protocol_version }} -> server-dev
+          body: |
+            Auto-generated PR to merge `shared-protocol` (v${{ env.protocol_version }}) into `server-dev`.
+            This PR is intended to be merged via the repository's merge queue after required checks pass.
+          labels: auto/propagate,merge-queued
+
+      - name: Notify on conflict
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const body = `Automatic propagation of shared-protocol into dev branches failed due to merge conflicts. Please resolve manually.`
+            await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title: 'Propagation conflict: shared-protocol', body })

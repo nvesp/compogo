@@ -1,0 +1,105 @@
+name: Update shared-protocol from dev branches
+
+on:
+  push:
+    branches:
+      - client-dev
+      - server-dev
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+jobs:
+  update-shared:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect protocol file changes
+        id: detect
+        run: |
+          set -e
+          files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} || true)
+          echo "files=$files" >> $GITHUB_OUTPUT
+          echo "$files" | grep -E '(^| )shared/(rules.json|rules.schema.json|message_ids.json|protocol_version.txt|rules_loader.gd|RulesLoader.cs)( |$)' && echo "changed_protocol=true" >> $GITHUB_OUTPUT || echo "changed_protocol=false" >> $GITHUB_OUTPUT
+
+      - name: Exit if no protocol changes
+        if: steps.detect.outputs.changed_protocol != 'true'
+        run: |
+          echo "No protocol-related changes detected. Exiting."
+          exit 0
+
+      - name: Setup Node.js and install ajv
+        run: |
+          curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+          sudo apt-get install -y nodejs
+          npm install -g ajv-cli
+
+      - name: Validate shared rules.json against schema
+        run: |
+          if ! ajv validate -s shared/rules.schema.json -d shared/rules.json; then
+            echo "Schema validation failed" >&2
+            exit 1
+          fi
+
+      - name: Stamp version files
+        run: |
+          version=$(jq -r '.protocol_version' shared/rules.json)
+          echo "protocol_version=$version" >> $GITHUB_ENV
+          mkdir -p game-server/export web-client/export
+          echo "v$version" > game-server/export/version.txt
+          echo "v$version" > web-client/export/version.txt
+
+      - name: Create merge branch and merge changes
+        id: make_branch
+        run: |
+          set -e
+          BRANCH_NAME="auto/protocol/${{ github.run_id }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin shared-protocol
+          git fetch origin ${{ github.ref_name }}
+          git checkout -b "$BRANCH_NAME" origin/shared-protocol
+          if ! git merge --no-edit --no-ff origin/${{ github.ref_name }}; then
+            git merge --abort || true
+            echo "merge_conflict=true" >> $GITHUB_OUTPUT
+            echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          git push origin "$BRANCH_NAME"
+          echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+      - name: Create or update PR into shared-protocol
+        uses: peter-evans/create-pull-request@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          base: shared-protocol
+          branch: ${{ steps.make_branch.outputs.branch }}
+          title: |
+            auto: protocol update from ${{ github.ref_name }} — v${{ env.protocol_version }}
+          body: |
+            This PR was created automatically to merge protocol-related changes from `${{ github.ref_name }}` into `shared-protocol`.
+
+            Protocol version: ${{ env.protocol_version }}
+
+            Checklist:
+            - [ ] `ajv` validation passed (CI will run validation)
+            - [ ] Repo owner review (CODEOWNERS will request review)
+
+          labels: auto/protocol
+          reviewers: nvesp
+
+      - name: Comment if merge produced conflicts
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issueTitle = `Merge conflict auto/protocol/${{ github.run_id }}`
+            const body = `Automatic merge from ${{ github.ref_name }} into shared-protocol failed due to conflicts. Please resolve manually.`
+            await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title: issueTitle, body })
