@@ -6,7 +6,7 @@
   "properties": {
     "protocol_version": {
       "type": "number",
-      "minimum": 0.1,
+      "minimum": 0.01,
       "description": "Protocol version number for compatibility checks"
     },
     "movement": {
