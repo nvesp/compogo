@@ -1,6 +1,5 @@
 # CODEOWNERS: require repo-owner review for shared protocol files
 
-# Replace @nvesp with the exact GitHub username of the repo owner if different
 /shared/ @nvesp
 shared/rules.json @nvesp
 shared/message_ids.json @nvesp
