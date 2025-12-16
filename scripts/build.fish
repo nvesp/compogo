@@ -57,12 +57,32 @@ function build_client
     godot-mono --headless --export "HTML5" $CLIENT_EXPORT/index.html
 end
 
+# CHECK protocol drift function
+function check_protocol_drift
+    set current_version (jq '.protocol_version' $SHARED/rules.json)
+    set last_version (cat $SERVER_EXPORT/version.txt)
+    if test "$current_version" != "$last_version"
+        echo "❌ Protocol drift detected: $last_version -> $current_version"
+        exit 1
+    else
+        echo "✅ No protocol drift detected"
+    end
+
+function git_stamp_version
+    set version (jq '.protocol_version' $SHARED/rules.json)
+    git add .
+    git commit -m "Bump protocol version to v$version"
+    git tag -a "v$version" -m "Protocol version v$version"
+end
+
 # Combined workflow
 validate_rules
 copy_rules
 stamp_version
+check_protocol_drift
 build_server
 build_client
+source scripts/build.fish
 
 echo "✅ Build process complete."
 
