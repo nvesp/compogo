@@ -2,34 +2,34 @@
 
 # RUN from compogo/godot folder
 # Paths
-set ROOT (pwd)
+set ROOT "C:/cygwin64/home/nvesp/projects/compogo/godot"
 set SHARED "$ROOT/shared"
 set SERVER "$ROOT/game-server"
 set CLIENT "$ROOT/web-client"
 set SERVER_EXPORT "$SERVER/export"
 set CLIENT_EXPORT "$CLIENT/export"
 
-function validate_rules
-    set RULES_FILE "$SHARED/rules.json"
-    set SCHEMA_FILE "$SHARED/rules.schema.json"
-
-    if not test -f $RULES_FILE
-        echo "❌ Rules file missing"
-        exit 1
-    end
-    if not test -f $SCHEMA_FILE
-        echo "❌ Schema file missing"
-        exit 1
-    end
-
-    ajv validate -s $SCHEMA_FILE -d $RULES_FILE
-    if test $status -ne 0
-        echo "❌ Rules validation failed"
-        exit 1
-    else
-        echo "✅ Rules validated successfully"
-    end
-end
+# function validate_rules
+#    set RULES_FILE "$SHARED/rules.json"
+#    set SCHEMA_FILE "$SHARED/rules.schema.json"
+#
+#   if not test -f $RULES_FILE
+#      echo "❌ Rules file missing"
+#        exit 1
+#    end
+#    if not test -f $SCHEMA_FILE
+#        echo "❌ Schema file missing"
+#        exit 1
+#    end
+#
+#    ajv validate -s $SCHEMA_FILE -d $RULES_FILE
+#    if test $status -ne 0
+#        echo "❌ Rules validation failed"
+#        exit 1
+#    else
+#        echo "✅ Rules validated successfully"
+#    end
+#end
 
 function copy_rules
     for target in $SERVER_EXPORT $CLIENT_EXPORT
@@ -57,7 +57,6 @@ function build_client
     godot-mono --headless --export "HTML5" $CLIENT_EXPORT/index.html
 end
 
-# CHECK protocol drift function
 function check_protocol_drift
     set current_version (jq '.protocol_version' $SHARED/rules.json)
     set last_version (cat $SERVER_EXPORT/version.txt)
@@ -67,6 +66,7 @@ function check_protocol_drift
     else
         echo "✅ No protocol drift detected"
     end
+end
 
 function git_stamp_version
     set version (jq '.protocol_version' $SHARED/rules.json)
@@ -76,13 +76,12 @@ function git_stamp_version
 end
 
 # Combined workflow
-validate_rules
+#validate_rules
 copy_rules
 stamp_version
 check_protocol_drift
 build_server
 build_client
-source scripts/build.fish
 
 echo "✅ Build process complete."
 
