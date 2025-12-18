@@ -12,7 +12,7 @@ using System.Text.Json;
 
 public class RulesLoader
 {
-	public static Rules rules;
+	private static Rules rules;
 	public static Rules Rules => rules;
 		public static void InitializeDefaultRules()
 		{
