@@ -11,9 +11,13 @@ config_version=5
 [application]
 
 config/name="compogo-web"
-run/main_scene="uid://d1thmohkr4ypo"
+run/main_scene="uid://77nhg15i1tgd"
 config/features=PackedStringArray("4.5", "GL Compatibility")
 config/icon="res://icon.svg"
+
+[autoload]
+
+RulesLoader="*res://scripts/RulesLoader.gd"
 
 [dotnet]
 
