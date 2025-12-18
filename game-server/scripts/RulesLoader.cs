@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.ComponentModel;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 
 // Usage in server code:
@@ -21,8 +22,9 @@ public class RulesLoader
 				Movement = new Movement { MaxRadius = 100, MaxSpeed = 20.0 },
 				Combat = new Combat { BaseDamage = 50, CriticalMultiplier = 1.5 },
 			};
-			GD.Print("Default rules initialized successfully!");
+		GD.Print("Default rules initialized successfully!");
 		}
+
 
 	/* FIXME: Re-enable JSON loading later, use manual defaults for now.
 		public static void LoadRules(string path = "res://../shared/rules.json")
