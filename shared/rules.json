@@ -1,11 +1,11 @@
 {
   "protocol_version": 0.01,
   "movement": {
-    "max_radius": 100.0,
-    "max_speed": 20.0
+	"max_radius": 100.0,
+	"max_speed": 20.0
   },
   "combat": {
-    "base_damage": 5,
-    "critical_multiplier": 2.0
+	"base_damage": 5,
+	"critical_multiplier": 2.0
   }
 }
