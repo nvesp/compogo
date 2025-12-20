@@ -7,7 +7,7 @@ func initialize_default_rules() -> void:
 		"protocol_version": 0.01,
 		"movement": {
 			"max_radius": 100.0,
-			"max_speed": 20.0
+			"max_speed": 10.0
 		},
 		"combat": {
 			"base_damage": 50,
