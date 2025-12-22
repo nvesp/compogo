@@ -1,5 +1,5 @@
 {
-  "protocol_version": 0.01,
+  "protocol_version": 0.020,
   "movement": {
 	"max_radius": 100.0,
 	"max_speed": 20.0
