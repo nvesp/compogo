@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #!/usr/bin/env fish
 
 # RUN from compogo/godot folder
@@ -85,3 +86,106 @@ build_client
 
 echo "✅ Build process complete."
 
+=======
+#!/usr/bin/env fish
+
+# RUN from compogo/godot folder
+# Paths
+set ROOT (pwd)
+set SHARED "$ROOT/shared"
+set SERVER "$ROOT/game-server"
+set CLIENT "$ROOT/web-client"
+set SERVER_EXPORT "$SERVER/export"
+set CLIENT_EXPORT "$CLIENT/export"
+
+function validate_rules
+    set RULES_FILE "$SHARED/rules.json"
+    set SCHEMA_FILE "$SHARED/rules.schema.json"
+
+    if not test -f $RULES_FILE
+        echo "❌ Rules file missing"
+        exit 1
+    end
+    if not test -f $SCHEMA_FILE
+        echo "❌ Schema file missing"
+        exit 1
+    end
+
+    ajv validate -s $SCHEMA_FILE -d $RULES_FILE
+    if test $status -ne 0
+        echo "❌ Rules validation failed"
+        exit 1
+    else
+        echo "✅ Rules validated successfully"
+    end
+end
+
+function copy_rules
+    for target in $SERVER_EXPORT $CLIENT_EXPORT
+        mkdir -p $target
+        cp $SHARED/rules.json $target/rules.json
+        echo "📦 Copied rules.json to $target"
+    end
+end
+
+function stamp_version
+    set pversion (mrun "jq '.protocol_version' $SHARED/rules.json")
+    echo "🔖 Protocol version: v$pversion"
+    echo $pversion > $SHARED/protocol_version.txt
+    echo $pversion > $SERVER_EXPORT/version.txt
+    echo $pversion > $CLIENT_EXPORT/version.txt
+end
+
+function build_server
+    set pversion (mrun "jq '.protocol_version' $SHARED/rules.json")
+    echo "🚀 Exporting server build v$version..."
+    godot-mono --headless --export "Linux/X11" $SERVER_EXPORT/server-v$version.x86_64
+end
+
+function build_client
+    echo "🚀 Exporting web client build..."
+    godot-mono --headless --export "HTML5" $CLIENT_EXPORT/index.html
+end
+
+# CHECK protocol drift function
+function check_protocol_drift_server
+    set current_sversion (mrun "jq '.protocol_version' $SHARED/rules.json")
+    set last_sversion (cat $SERVER_EXPORT/version.txt)
+    if test "$current_sversion" != "$last_sversion"
+        echo "❌ Server Protocol drift detected: $last_sversion -> $current_version"
+        exit 1
+    else
+        echo "✅ No protocol drift detected"
+    end
+end
+
+function check_protocol_drift_client
+    set current_cversion (mrun "jq '.protocol_version' $SHARED/rules.json")
+    set last_cversion (cat $CLIENT_EXPORT/version.txt)
+    if test "$current_cversion" != "$last_cversion"
+        echo "❌ Client Protocol drift detected: $last_cversion -> $current_cversion"
+        exit 1
+    else
+        echo "✅ No protocol drift detected"
+    end
+end
+
+function git_stamp_version
+    set gversion (mrun "jq '.protocol_version' $SHARED/rules.json")
+    git add .
+    git commit -m "Bump protocol version to v$gversion"
+    git tag -a "v$gversion" -m "Protocol version v$version"
+end
+
+# Combined workflow
+#validate_rules fix these later
+copy_rules
+stamp_version
+check_protocol_drift_server
+check_protocol_drift_client
+#build_server still working on export templates
+#build_client still working on export templates
+
+
+echo "✅ Build process complete."
+>>>>>>> origin

@@ -11,9 +11,17 @@ config_version=5
 [application]
 
 config/name="compogo-server"
+<<<<<<< HEAD
 run/main_scene="uid://bxuy1hl7l0i51"
+=======
+run/main_scene="uid://cacc3lhgladmg"
+>>>>>>> origin
 config/features=PackedStringArray("4.5", "C#", "GL Compatibility")
 config/icon="res://icon.svg"
+
+[autoload]
+
+RulesLoader="*res://scripts/RulesLoader.cs"
 
 [dotnet]
 
