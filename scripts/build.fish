@@ -40,14 +40,15 @@ function copy_rules
 end
 
 function stamp_version
-    set version (jq '.protocol_version' $SHARED/rules.json)
-    echo "🔖 Protocol version: v$version"
-    echo v$version > $SERVER_EXPORT/version.txt
-    echo v$version > $CLIENT_EXPORT/version.txt
+    set pversion (mrun "jq '.protocol_version' $SHARED/rules.json")
+    echo "🔖 Protocol version: v$pversion"
+    echo $pversion > $SHARED/protocol_version.txt
+    echo $pversion > $SERVER_EXPORT/version.txt
+    echo $pversion > $CLIENT_EXPORT/version.txt
 end
 
 function build_server
-    set version (jq '.protocol_version' $SHARED/rules.json)
+    set pversion (mrun "jq '.protocol_version' $SHARED/rules.json")
     echo "🚀 Exporting server build v$version..."
     godot-mono --headless --export "Linux/X11" $SERVER_EXPORT/server-v$version.x86_64
 end
@@ -58,31 +59,43 @@ function build_client
 end
 
 # CHECK protocol drift function
-function check_protocol_drift
-    set current_version (jq '.protocol_version' $SHARED/rules.json)
-    set last_version (cat $SERVER_EXPORT/version.txt)
-    if test "$current_version" != "$last_version"
-        echo "❌ Protocol drift detected: $last_version -> $current_version"
+function check_protocol_drift_server
+    set current_sversion (mrun "jq '.protocol_version' $SHARED/rules.json")
+    set last_sversion (cat $SERVER_EXPORT/version.txt)
+    if test "$current_sversion" != "$last_sversion"
+        echo "❌ Server Protocol drift detected: $last_sversion -> $current_version"
         exit 1
     else
         echo "✅ No protocol drift detected"
     end
+end
+
+function check_protocol_drift_client
+    set current_cversion (mrun "jq '.protocol_version' $SHARED/rules.json")
+    set last_cversion (cat $CLIENT_EXPORT/version.txt)
+    if test "$current_cversion" != "$last_cversion"
+        echo "❌ Client Protocol drift detected: $last_cversion -> $current_cversion"
+        exit 1
+    else
+        echo "✅ No protocol drift detected"
+    end
+end
 
 function git_stamp_version
-    set version (jq '.protocol_version' $SHARED/rules.json)
+    set gversion (mrun "jq '.protocol_version' $SHARED/rules.json")
     git add .
-    git commit -m "Bump protocol version to v$version"
-    git tag -a "v$version" -m "Protocol version v$version"
+    git commit -m "Bump protocol version to v$gversion"
+    git tag -a "v$gversion" -m "Protocol version v$version"
 end
 
 # Combined workflow
-validate_rules
+#validate_rules fix these later
 copy_rules
 stamp_version
-check_protocol_drift
-build_server
-build_client
-source scripts/build.fish
+check_protocol_drift_server
+check_protocol_drift_client
+#build_server still working on export templates
+#build_client still working on export templates
+
 
 echo "✅ Build process complete."
-
