@@ -5,7 +5,7 @@
 	"max_speed": 20.0
   },
   "combat": {
-	"base_damage": 5,
+	"base_damage": 50,
 	"critical_multiplier": 2.0
   }
 }
