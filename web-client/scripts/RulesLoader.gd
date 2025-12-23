@@ -4,10 +4,10 @@ var rules: Dictionary = {}
 
 func initialize_default_rules() -> void:
 	rules = {
-		"protocol_version": 0.01,
+		"protocol_version": 0.020,
 		"movement": {
 			"max_radius": 100.0,
-			"max_speed": 10.0
+			"max_speed": 20.0
 		},
 		"combat": {
 			"base_damage": 50,
