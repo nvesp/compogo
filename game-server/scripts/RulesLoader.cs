@@ -10,7 +10,7 @@ using System.Text.Json;
 //   // Valid move
 //  }
 
-public class RulesLoader
+public partial class RulesLoader : Node2D
 {
 	private static Rules rules;
 	public static Rules Rules => rules;
