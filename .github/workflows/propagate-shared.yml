@@ -28,11 +28,12 @@ jobs:
           echo "protocol_version=$version" >> $GITHUB_OUTPUT
           echo "protocol_version=$version" >> $GITHUB_ENV
 
-      - name: Setup Node.js and install ajv
+      - name: Setup Node.js install ajv-cli and jq
         run: |
           curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
           sudo apt-get install -y nodejs
           npm install -g ajv-cli
+          sudo apt-get install -y jq
 
       - name: Validate rules schema (ajv)
         run: |
