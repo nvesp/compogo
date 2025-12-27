@@ -1,0 +1,9 @@
+{
+  "id": 0,
+  "seq": 1,
+  "payload": {
+    "protocol_version": 0.020,
+    "username": "TestPlayer",
+    "client_id": "client-uuid-1234"
+  }
+}
