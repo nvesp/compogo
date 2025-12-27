@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document defines the network protocol for Compogo, a hybrid game server (C#/Godot) and web client (GDScript/Godot). The protocol uses a standardized envelope format with versioning for game logic and tooling.
+This document defines the network protocol for Compogo, hybrid game server (C#/Godot) and web client (GDScript/Godot) Godot Engine projects. The protocol uses a standardized envelope format with versioning for game logic and tooling.
 
 ## Versioning
 
@@ -10,7 +10,7 @@ This document defines the network protocol for Compogo, a hybrid game server (C#
 
 - **Field:** `protocol_version` (float64, e.g., 0.020)
 - **Scope:** Game logic compatibility
-- **Enforcement:** **STRICT** — Client and server must match exactly; mismatch triggers hard disconnect
+- **Enforcement:** **STRICT** Client and server must match exactly; mismatch triggers hard disconnect
 - **Bump Policy:** Increment only on breaking game mechanic changes (movement rules, damage calculation, etc.)
 - **Client Behavior on Mismatch:** Display error, disconnect, and inform user that auto-update is required
 
@@ -20,7 +20,7 @@ This document defines the network protocol for Compogo, a hybrid game server (C#
 
 - **Field:** `schema_version` (string, e.g., "1.0.0")
 - **Scope:** Tooling, validation, and message structure
-- **Enforcement:** **PERMISSIVE** — Client warns on mismatch but does NOT disconnect
+- **Enforcement:** **PERMISSIVE** Client warns on mismatch but does NOT disconnect
 - **Bump Policy:** Increment on message schema changes (new fields, validation updates, etc.) that don't affect game logic
 - **Client Behavior on Mismatch:** Log warning, display optional UI notification, but continue operation
 
@@ -42,35 +42,36 @@ All messages use a standardized envelope:
 
 ## Envelope Fields
 
-**Field:** **Type:** **Required:** **Description:**
-
-```json
- id          int32          Yes         Message type identifier (0–99)
- seq         int32          Yes         Monotonically increasing sequence number per peer (1–2147483647        payload     object         Yes         Message-specific fields; structure varies by id
-```
+| FIELD   | TYPE   | REQUIRED | DESCRIPTION                                       |
+| ------- | ------ | -------- | ------------------------------------------------- |
+| id      | int32  | YES      | Message type identifier (0-99)                    |
+| seq     | int32  | YES      | Monotonically increasing sequence number per peer |
+| payload | object | YES      | Message-specific-fields; structure varies by id   |
 
 ## Sequence Number (Seq)
 
 ### Client Responsibility
 
-- Increment before each send; globally monotonic per session
-- No Reset: Continues across entire session; resets to 1 on reconnect
-- Server Validation: Warn-only on gaps (>5) or duplicates; do NOT disconnect on seq anomalies
-- Use Cases: Message deduplication on reconnect, out-of-order detection, request-response pairing
+- **Increment before each send; globally monotonic per session**
+- **No Reset:** Continues across entire session; resets to 1 on reconnect
+- **Server Validation:** Warn-only on gaps (>5) or duplicates; do NOT disconnect on seq anomalies
+- **Use Cases:** Message deduplication on reconnect, out-of-order detection, request-response pairing
   
 ### Example Seq Flow
 
-- Client sends CONNECT seq=1
-- Client sends MOVE seq=2 (after ACK)
-- Client sends MOVE seq=3
-- Server receives MOVE seq=3, then MOVE seq=2 (out-of-order); warns, processes both
+- Client sends `CONNECT seq=1`
+- Client sends `MOVE seq=2` (after ACK)
+- Client sends `MOVE seq=3`
+- Server receives `MOVE seq=3`, then `MOVE seq=2` (out-of-order); warns, processes both
+
+---
 
 ## System Messages (ID 0–9)
 
 ### CONNECT (ID 0)
 
-- Direction: Client → Server
-- Purpose: Initiate connection; exchange protocol version and identity
+- **Direction:** Client -> Server  
+- **Purpose:** Initiate connection; exchange protocol version and identity
 
 - ### Payload Schema
 
@@ -84,20 +85,20 @@ All messages use a standardized envelope:
 
 - ### Server Validation
 
-- protocol_version must match server (0.020)
-- username must be unique and not already in session
-- client_id enables deduplication on reconnect
+- `protocol_version` must match server **eg:** (0.020)
+- `username` must be unique and not already in session
+- `client_id` enables deduplication on reconnect
 
 - ### Server Response
 
-- ✅ Match → HANDSHAKE_ACK
-- ❌ Version mismatch → ERROR(PROTOCOL_VERSION_MISMATCH, reason="Client 0.019 incompatible with server 0.020")
-- ❌ Username exists → ERROR (PLAYER_ALREADY_CONNECTED)
+- **Match** -> `HANDSHAKE_ACK`
+- **Version mismatch** -> (`ERROR_PROTOCOL_VERSION_MISMATCH`, reason="Client 0.019 incompatible with server 0.020")
+- **Username exists** -> (`ERROR_PLAYER_ALREADY_CONNECTED`, reason="Username already exists on this server")
 
 ### HANDSHAKE_ACK (ID 1)
 
-- Direction: Server → Client
-- Purpose: Confirm connection; supply initial state
+- **Direction:** Server -> Client
+- **Purpose:** Confirm connection; supply initial state
 
 - ### Payload Schema
 
@@ -114,16 +115,15 @@ All messages use a standardized envelope:
 
 - ### Client Behavior
 
-- Check protocol_version: hard disconnect if mismatch
-- Check schema_version: log warning if mismatch, but continue
-- Store player_id, render map bounds
+- **Check protocol_version:** hard disconnect if mismatch
+- **Check schema_version:** log warning if mismatch, but continue
+- Store `player_id`, render map bounds
 - Populate initial player list
-- ERROR (ID 5)
 
 ### ERROR (ID 5)
 
-- Direction: Server → Client
-- Purpose: Report validation failure or protocol violation
+- **Direction:** Server -> Client
+- **Purpose:** Report validation failure or protocol violation
 
 - ### Payload Schema
 
@@ -131,7 +131,7 @@ All messages use a standardized envelope:
 
 | CODE                      | TRIGGER                         | CLIENT ACTION                    | SEVERITY |
 | ------------------------- | ------------------------------- | -------------------------------- | -------- |
-| PROTOCOL_VERSION_MISMATCH | CONNECT version ≠ server        | Disconnect; show upgrade prompt  | FATAL    |
+| PROTOCOL_VERSION_MISMATCH | CONNECT version != server       | Disconnect; show upgrade prompt  | FATAL    |
 | INVALID_MOVE              | Out of bounds OR speed exceeded | Rollback; re-send corrected MOVE | WARN     |
 | INVALID_ATTACK            | Target not found OR dead        | Discard; continue                | WARN     |
 | RATE_LIMITED              | >1 MOVE/tick OR >2 ATTACK/tick  | Que client-side; retry next tick | WARN     |
@@ -140,8 +140,8 @@ All messages use a standardized envelope:
 
 ### DISCONNECT (ID 6)
 
-- Direction: Client ↔ Server
-- Purpose: Graceful session termination
+- **Direction:** Client <-> Server
+- **Purpose:** Graceful session termination
 
 - ### Payload Schema
 
@@ -152,12 +152,14 @@ All messages use a standardized envelope:
 }
 ```
 
+---
+
 ## Movement Messages (ID 10–19)
 
 ### MOVE (ID 2)
 
-- Direction: Client → Server
-- Purpose: Movement input; server validates and broadcasts
+- **Direction:** Client -> Server
+- **Purpose:** Movement input; server validates and broadcasts
 
 - ### Payload Schema
 
@@ -170,20 +172,20 @@ All messages use a standardized envelope:
 
 - ### Server Validation
 
-- Bounds: sqrt(x² + y²) ≤ 100.0 (max_radius)
-- Speed: If timestamp provided, estimated speed = distance / time; if > 20.0 → INVALID_MOVE
-- Rate: Max 1 MOVE per tick per peer
+- **Bounds:** sqrt(x² + y²) ≤ 100.0 (`max_radius`)
+- **Speed:** If timestamp provided, estimated speed = distance / time; if > 20.0 -> `INVALID_MOVE`
+- **Rate:** Max 1 MOVE per tick per peer
 
 - ### Server Response
 
-- SNAPSHOT (with updated position) or ERROR
+- `SNAPSHOT` (with updated position) or `ERROR`
 
 ## Combat Messages (ID 30–39)
 
 ### ATTACK (ID 3)
 
-- Direction: Client → Server
-- Purpose: Attack target; server validates and applies damage
+- **Direction:** Client -> Server
+- **Purpose:** Attack target; server validates and applies damage
 
 - ### Payload Schema
 
@@ -196,26 +198,28 @@ All messages use a standardized envelope:
 
 - ### Damage Calculation
 
-- Base damage: 50 (rules.combat.base_damage)
-- If is_critical: damage = 50 × 2.0 = 100
-- Else: damage = 50
+- **Base damage:** 50 (`rules.combat.base_damage`) `base_damage` = `rules.combat.base_damage`
+- **If is_critical:** 2.0 (`rules.combat.is_critical`) `damage` = `base_damage` × 2.0 = 100
+- **Else:** `damage` = 50
 
 - ### Server Validation
 
-- Target exists and health > 0
-- Apply damage; broadcast in SNAPSHOT
+- Target exists and `health` > 0
+- Apply `damage`; broadcast in `SNAPSHOT`
 
 - ### Server Response
 
-- SNAPSHOT (with updated health) or ERROR
+- `SNAPSHOT` (with updated `health`) or `ERROR`
+
+---
 
 ## Broadcast Messages (ID 40–49)
 
 ### SNAPSHOT (ID 4)
 
-- Direction: Server → Clients
-- Purpose: Authoritative state broadcast
-- Broadcast Frequency: 30 Hz (every ~33 ms)
+- **Direction:** Server -> Clients
+- **Purpose:** Authoritative state broadcast
+- **Broadcast Frequency:** 30 Hz (every ~33 ms)
 
 - ### Payload Schema
 
@@ -229,10 +233,10 @@ All messages use a standardized envelope:
 
 - ### Events
 
-- damage_dealt: { attacker_id, target_id, damage, is_critical }
-- player_joined: { id, username }
-- player_left: { id }
-- kill: { attacker_id, target_id }
+- **damage_dealt:** { attacker_id, target_id, damage, is_critical }
+- **player_joined:** { id, username }
+- **player_left:** { id }
+- **kill:** { attacker_id, target_id }
 
 ## Data Type Mapping
 
@@ -248,7 +252,7 @@ All messages use a standardized envelope:
 
 ## Validation Rules
 
-- Tied to shared/rules.json
+- Tied to `shared/rules.json`
 
 | Rule                | Value | Applied To | Validation                                         |
 | ------------------- | ----- | ---------- | -------------------------------------------------- |
@@ -257,24 +261,25 @@ All messages use a standardized envelope:
 | base_damage         | 50    | ATTACK     | Applied each hit; crit doubles to 100              |
 | critical_multiplier | 2.0   | ATTACK     | Damage = base x multiplier if is_critical          |
 
+---
+
 ## Golden Samples
 
-- Golden samples are canonical message payloads stored in shared/golden/ for cross-language serialization testing.
+- Golden samples are canonical message payloads stored in `shared/golden/` for cross-language serialization testing.
 
 ### Sample Naming Convention
 
-- Positive samples: message_MESSAGETYPE_PROTOCOLVERSION.json
-- Example: message_MOVE_0.020.json
+- **Positive samples:** message_MESSAGETYPE_PROTOCOLVERSION.json
+- **Example:** message_MOVE_0.020.json
 
-### Negative samples: message_MESSAGETYPE_ERROR_PROTOCOLVERSION.json
-
-- Example: message_MOVE_INVALID_OOB_0.020.json
+- **Negative samples:** message_MESSAGETYPE_ERROR_PROTOCOLVERSION.json
+- **Example:** message_MOVE_INVALID_OOB_0.020.json
 
 ### Validation Requirements
 
-- Positive samples: Must pass schema validation (ajv or equivalent)
-- Negative samples: Must fail validation with documented error code
-- Maintenance: Regenerate samples after any message_ids.json or rules.json changes via fish scripts/update_golden_samples.fish
+- **Positive samples:** Must pass schema validation (ajv or equivalent)
+- **Negative samples:** Must fail validation with documented error code
+- **Maintenance:** Regenerate samples after any `message_ids.json` or `rules.json` changes via fish `scripts/update_golden_samples.fish`
 
 ### Compression Policy
 
@@ -286,13 +291,13 @@ All messages use a standardized envelope:
 ### Example 1: Successful Connection Handshake
 
 ```json
-Client → Server: CONNECT seq=1
+Client -> Server: CONNECT seq=1
   { "protocol_version": 0.020, "username": "Alice", "client_id": "abc123" }
 
 Server validates: version OK, username unique
   ↓
 
-Server → Client: HANDSHAKE_ACK seq=1
+Server -> Client: HANDSHAKE_ACK seq=1
   { "player_id": 42, "protocol_version": 0.020, "schema_version": "1.0.0", 
     "map_bounds": { "max_radius": 100.0 }, "tick": 1000, 
     "existing_players": [ ... ] }
@@ -303,7 +308,7 @@ Client receives: Stores player_id=42, renders initial state
 ### Example 2: Movement with validation
 
 ```json
-Client → Server: MOVE seq=2
+Client -> Server: MOVE seq=2
   { "x": 45.5, "y": 32.0, "timestamp_client_ms": 1702988400500 }
 
 Server validates: 
@@ -311,7 +316,7 @@ Server validates:
   - Speed check: distance=55.5, time=50ms, speed≈1110 m/s (excessive!)
   ↓
 
-Server → Client: ERROR seq=N
+Server -> Client: ERROR seq=N
   { "code": "INVALID_MOVE", "reason": "Movement speed exceeds max_speed (20.0)", 
     "offending_seq": 2 }
 
@@ -321,13 +326,13 @@ Client: Rolls back position to last SNAPSHOT, displays "Movement too fast"
 ### Example 3: Version mismatch ( hard disconnect)
 
 ```json
-Client (v0.019) → Server (v0.020): CONNECT seq=1
+Client (v0.019) -> Server (v0.020): CONNECT seq=1
   { "protocol_version": 0.019, ... }
 
 Server validates: 0.019 ≠ 0.020
   ↓
 
-Server → Client: ERROR seq=N
+Server -> Client: ERROR seq=N
   { "code": "PROTOCOL_VERSION_MISMATCH", 
     "reason": "Client version 0.019 incompatible with server 0.020" }
 
@@ -344,62 +349,31 @@ Client: Logs warning "Schema version mismatch: 1.0.0 vs 1.1.0"
         Optionally shows UI notification (optional)
 ```
 
-## Client Implementation Checklist
-
-- [x] Implement CONNECT with protocol_version check
-- [ ] Implement HANDSHAKE_ACK handler; check protocol_version (hard disconnect) and schema_version (warn)
-- [ ] Implement MOVE sender; validate bounds locally before sending
-- [ ] Implement ATTACK sender; validate target exists before sending
-- [ ] SNAPSHOT receiver; interpolate positions; update_health
-- [ ] Implement ERROR handler; display error messages
-- [ ] Implement seq counter; increment before each send
-- [ ] Implement exponential backoff reconnect on disconnect
-- [ ] Implement rollback on INVALID_MOVE error
-
-## Server Implementation Checklist
-
-- [ ] Implement CONNECT handler; validate protocol_version, check username uniqueness
-- [ ] Implement HANDSHAKE_ACK sender; include schema_version in payload
-- [ ] Implement MOVE handler; validate bounds, speed, rate limit
-- [ ] Implement ATTACK handler; validate target, calculate damage, broadcast update
-- [ ] Implement SNAPSHOT generator; broadcast at 30 Hz with all players
-- [ ] Implement ERROR sender; all validation failures trigger ERROR
-- [ ] Implement seq tracking; warn on gaps >5, handle duplicates
-- [ ] Load message_ids.json schema at startup; log "Schema loaded in Xms"
-- [ ] Hard disconnect on protocol_version mismatch
-
 ## BUILD AND TEST
 
 - ### BUILD
-
-```json
-fish scripts/build.fish
-# Generates: shared/MessageID.cs, shared/MessageID.gd, shared/ProtocolVersion.cs, shared/ProtocolVersion.gd
-# Injects: protocol_version, schema_version as constants
-```
+- `fish scripts/build.fish`
+- **Generates:** `shared/MessageID.cs`, `shared/MessageID.gd`, `shared/ProtocolVersion.cs`, `shared/ProtocolVersion.gd`
+- **Injects:** `protocol_version`, `schema_version` as constants
 
 - ### GOLDEN SAMPLES
-
-```json
-fish scripts/update_golden_samples.fish
-# Regenerates: shared/golden/message_*.json files
-# Validates: positive samples pass, negative samples fail with correct error codes
-```
+- `fish scripts/update_golden_samples.fish`
+- **Regenerates:** `shared/golden/message_*.json` files
+- **Validates:** positive samples pass, negative samples fail with correct error codes
 
 - ### CI validation
-
-- CI ensures:
-- ✅ message_ids.json schema is valid
-- ✅ rules.json matches rules.schema.json
-- ✅ protocol_version and schema_version are consistent across artifacts
-- ✅ Generated enums match message_ids.json
-- ✅ Golden samples are valid (positive) and invalid (negative) as expected
+- **CI ensures:**
+- `message_ids.json` schema is valid
+- `rules.json` matches `rules.schema.json`
+- `protocol_version` and schema_version are consistent across artifacts
+- Generated enums match `message_ids.json`
+- Golden samples are valid (positive) and invalid (negative) as expected
 
 ## FUTURE MIGRATIONS
 
 - ### Schema extraction (at > 5kb)
 
-- if message_ids.json exceeds 5KB, migrate to external schemas:
+- if `message_ids.json` exceeds 5KB, migrate to external schemas:
 
 ```json
 shared/
@@ -411,27 +385,25 @@ shared/
     ... (one per message type)
 ```
 
-- use JSON Schema $ref for references; update c# loader to resolve refs.
+- use JSON Schema $ref for references; update C# and GDscript `RulesLoader`classes to resolve refs.
 
-## FAQ
+## Client Implementation (Godot/GDscript) Notes
 
-- Q: What happens if I bump protocol_version?
-- A: All old clients disconnect with "Version mismatch" error; they must auto-update.
+## Phase 1 Client Checklist
 
-- Q: What happens if I bump schema_version?
-- A: Clients log a warning but continue normal gameplay. Tooling (tests, CI) must revalidate.
-
-- Q: How often should I regenerate golden samples?
-- A: After any message_ids.json or rules.json change; use update_golden_samples.fish.
-
-- Q: Can I test negative samples locally?
-- A: Yes; each negative sample has an expected error code (e.g., INVALID_MOVE). CI validates both positive (pass) and negative (fail with code..)
-
-## Client Implementation Guide
+- [ ] Implement `CONNECT` with `protocol_version` check
+- [ ] Implement `HANDSHAKE_ACK` handler; check `protocol_version` (hard disconnect) and `schema_version` (warn)
+- [ ] Implement `MOVE` sender; validate bounds locally before sending
+- [ ] Implement `ATTACK` sender; validate target exists before sending
+- [ ] `SNAPSHOT` receiver; interpolate positions; `update_health`
+- [ ] Implement `ERROR` handler; display error messages
+- [ ] Implement `seq` counter; increment before each send
+- [ ] Implement exponential backoff reconnect on disconnect
+- [ ] Implement rollback on `INVALID_MOVE` error
 
 ### GDScript Type Safety (4.0+)
 
-Use native type annotations to catch errors early:
+**Use native GDscript type annotations to catch errors:**
 
 ```gdscript
 # MessageEnvelope.gd
@@ -555,7 +527,19 @@ func handle_handshake(payload: Dictionary) -> void:
 
 ---
 
-## Server Implementation Guide (C#)
+## Server Implementation (Godot-Mono/C#) Notes
+
+## Phase 1 Server Checklist
+
+- [ ] Implement `CONNECT` handler; validate `protocol_version`, check `username` uniqueness
+- [ ] Implement `HANDSHAKE_ACK` sender; include `schema_version` in payload
+- [ ] Implement `MOVE` handler; validate `bounds`, `speed`, `rate_limit`
+- [ ] Implement `ATTACK` handler; validate target, calculate damage, broadcast update
+- [ ] Implement `SNAPSHOT` generator; broadcast at 30 Hz with all players
+- [ ] Implement `ERROR` sender; all validation failures trigger `ERROR`
+- [ ] Implement `seq` tracking; warn on gaps >5, handle duplicates
+- [ ] Load `message_ids.json` schema at startup; log "Schema loading time in ms"
+- [ ] Hard disconnect on `protocol_version` mismatch
 
 ### Strict Validation with MessageEnvelope
 
@@ -567,10 +551,8 @@ public class MessageEnvelope
     public int Seq { get; set; }
     public JObject Payload { get; set; }
     
-    /// <summary>
     /// Deserialize JSON and validate against schema.
     /// Throws InvalidOperationException on validation failure.
-    /// </summary>
     public static MessageEnvelope Deserialize(string json)
     {
         try
@@ -604,10 +586,8 @@ public class MessageEnvelope
         }
     }
     
-    /// <summary>
     /// Validate payload structure and field values against schema.
     /// Throws InvalidOperationException on validation failure.
-    /// </summary>
     private static void ValidatePayload(int messageId, JObject payload)
     {
         switch (messageId)
@@ -636,7 +616,7 @@ public class MessageEnvelope
         var version = payload["protocol_version"].Value<double>();
         if (version != RulesLoader.Rules.ProtocolVersion)
             throw new InvalidOperationException(
-                $"protocol_version mismatch: client {version} ≠ server {RulesLoader.Rules.ProtocolVersion}"
+                $"protocol_version mismatch: client {version} != server {RulesLoader.Rules.ProtocolVersion}"
             );
     }
     
@@ -660,7 +640,7 @@ public class MessageEnvelope
         if (!obj.ContainsKey(fieldName))
             throw new InvalidOperationException($"Missing required field: {fieldName}");
         if (obj[fieldName].Type != JTokenType.Property || obj[fieldName].Type != expectedType)
-            throw new InvalidOperationException($"Invalid type for field {fieldName}");
+            throw new InvalidOperationException($"Invalid type for field: {fieldName}");
     }
 }
 
@@ -732,7 +712,7 @@ private void SendError(int peerId, string code, string reason)
 
 ### Phase 1 (MVP): Simple Startup Log
 
-Server startup:
+**Server startup:**
 
 ```json
 [Server] Schema loaded in 5ms
@@ -758,8 +738,8 @@ Per-message logging (validation failures only):
 
 ### When to Bump `protocol_version` (Game Logic)
 
-- Rule changes: max_speed, max_radius, damage formulas
-- SNAPSHOT state semantics change
+- **Rule changes:** `max_speed`, `max_radius`, `damage` formulas
+- `SNAPSHOT` state semantics change
 - Handshake behavior change
 - **Result:** Clients with old version hard-disconnect; **auto-update required**
 
@@ -775,21 +755,39 @@ Per-message logging (validation failures only):
 
 1. Update `shared/rules.json`: increment `protocol_version` and/or `schema_version`
 2. Run build: `fish scripts/build.fish`
-   - Generates new enums (MessageID.cs, MessageID.gd)
-   - Stamps new version into ProtocolVersion.cs/ProtocolVersion.gd
-   - Copies artifacts to export/ for CI
+   - Generates new enums (`MessageID.cs`, `MessageID.gd`)
+   - Stamps new version into `ProtocolVersion.cs/ProtocolVersion.gd`
+   - Copies artifacts to `export/` for CI
 3. Regenerate golden samples: `fish scripts/update_golden_samples.fish`
 4. Commit updates to git
 5. Create git tag: `git tag v0.021` (if protocol_version bumped)
-6. **If `protocol_version` bumped:** Document in [README.MD](../README.MD) that client auto-update is required
+6. **If `protocol_version` bumped:** Document that client auto-update is required
 
 ---
 
-## See Also
+## FAQ
 
-- [shared/message_ids.json](message_ids.json) — Authoritative message enum definitions and payload schemas
-- [shared/rules.json](rules.json) — Game rule constants (max_radius, max_speed, etc.)
-- [shared/golden/](golden/) — Canonical test message samples per protocol version
-- [scripts/build.fish](../scripts/build.fish) — Build orchestration (enum generation, artifact copying)
+- Q: What happens if I bump `protocol_version`?
+- A: All old clients disconnect with "Version mismatch" error; they must auto-update.
+
+- Q: What happens if I bump `schema_version`?
+- A: Clients log a warning but continue normal gameplay. Tooling (tests, CI) must revalidate.
+
+- Q: How often should I regenerate golden samples?
+- A: After any `message_ids.json` or `rules.json` change; use `update_golden_samples.fish` script
+
+- Q: Can I test negative samples locally?
+- A: Yes; each negative sample has an expected error code (e.g., `INVALID_MOVE`). CI validates both positive (pass) and negative (fail with code..)
+
+---
+
+## See also Shared-PROTOCOL files for rules validation etc.
+
+- [shared/message_ids.json](message_ids.json) - Authoritative message enum/consts definitions and payload schemas
+- [shared/rules.json](rules.json) - Game rule constants (max_radius, max_speed, etc.)
+- [shared/MessageID.gd](MessageID.gd) - GDscript message enums generated by build.fish
+- [shared/MessageID.cs](MessageID.cs) - C# message consts generated by build.fish
+- [shared/golden/](golden/) - Canonical test message samples per protocol version
+- [scripts/build.fish](../scripts/build.fish) - Build orchestration (enum generation, artifact copying, compile server and client)
 - [scripts/update_golden_samples.fish](../scripts/update_golden_samples.fish) — Golden sample regeneration
 - [README.MD](../README.MD) — Build prerequisites and deployment instructions
