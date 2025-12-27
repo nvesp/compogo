@@ -1,0 +1,9 @@
+{
+  "id": 5,
+  "seq": 9999,
+  "payload": {
+    "code": "PROTOCOL_VERSION_MISMATCH",
+    "reason": "Client version 0.010 incompatible with server 0.020",
+    "offending_seq": 1
+  }
+}
