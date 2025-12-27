@@ -1,0 +1,9 @@
+{
+  "id": 5,
+  "seq": 9999,
+  "payload": {
+    "code": "INVALID_ATTACK",
+    "reason": "Target 999 not found or already dead",
+    "offending_seq": 3
+  }
+}

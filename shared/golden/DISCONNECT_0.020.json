@@ -1,0 +1,8 @@
+{
+  "id": 6,
+  "seq": 100,
+  "payload": {
+    "reason": "player_quit",
+    "message": "User closed game"
+  }
+}

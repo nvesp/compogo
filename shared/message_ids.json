@@ -1,8 +1,260 @@
 {
-    "placeholder": [ 
-        "code-gen both .gd and .cs enums from json file",
-        "Envelope Format:",
-        "Standardize { id: <int>, seq: <int>, payload: <object> }",
-        "Include protocol_version exchange during handshake"
-   ]
+  "schema_version": "0.1.0",
+  "protocol_version": 0.020,
+  "enum_ranges": {
+    "comment": "Message ID ranges for organization",
+    "system": "0–9 (CONNECT, HANDSHAKE_ACK, ERROR, DISCONNECT)",
+    "movement": "10–19 (MOVE)",
+    "combat": "30–39 (ATTACK)",
+    "broadcast": "40–49 (SNAPSHOT)"
+  },
+  "messages": [
+    {
+      "id": 0,
+      "name": "CONNECT",
+      "direction": "request",
+      "category": "System",
+      "description": "Client initiates connection; exchanges protocol version and client identity",
+      "payload_schema": {
+        "type": "object",
+        "required": ["protocol_version", "username", "client_id"],
+        "additionalProperties": false,
+        "properties": {
+          "protocol_version": {
+            "type": "number",
+            "description": "Must match server protocol_version (0.020)"
+          },
+          "username": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[a-zA-Z0-9_]+$",
+            "description": "Player name; alphanumeric + underscores"
+          },
+          "client_id": {
+            "type": "string",
+            "description": "Unique client identifier (UUID or ephemeral session ID)"
+          }
+        }
+      }
+    },
+    {
+      "id": 1,
+      "name": "HANDSHAKE_ACK",
+      "direction": "response",
+      "category": "System",
+      "description": "Server confirms connection; supplies game state and player list",
+      "payload_schema": {
+        "type": "object",
+        "required": ["player_id", "protocol_version", "schema_version", "map_bounds", "tick", "existing_players"],
+        "additionalProperties": false,
+        "properties": {
+          "player_id": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Assigned player ID"
+          },
+          "protocol_version": {
+            "type": "number",
+            "description": "Server protocol version (must match CONNECT)"
+          },
+          "schema_version": {
+            "type": "string",
+            "description": "Server schema version; warn if mismatch, do not disconnect"
+          },
+          "map_bounds": {
+            "type": "object",
+            "required": ["max_radius"],
+            "properties": {
+              "max_radius": {
+                "type": "number",
+                "description": "Maximum coordinate radius (100.0)"
+              }
+            }
+          },
+          "tick": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Current server tick"
+          },
+          "existing_players": {
+            "type": "array",
+            "description": "List of active players",
+            "items": {
+              "type": "object",
+              "required": ["id", "username", "x", "y", "health", "status"],
+              "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "username": { "type": "string" },
+                "x": { "type": "number", "minimum": -100.0, "maximum": 100.0 },
+                "y": { "type": "number", "minimum": -100.0, "maximum": 100.0 },
+                "health": { "type": "integer", "minimum": 0, "maximum": 100 },
+                "status": { "type": "string", "enum": ["idle", "moving", "attacking", "dead"] }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "name": "MOVE",
+      "direction": "request",
+      "category": "Movement",
+      "description": "Client sends movement input; server validates against max_radius and max_speed",
+      "payload_schema": {
+        "type": "object",
+        "required": ["x", "y"],
+        "additionalProperties": false,
+        "properties": {
+          "x": {
+            "type": "number",
+            "minimum": -100.0,
+            "maximum": 100.0,
+            "description": "Target X coordinate; must satisfy sqrt(x²+y²) ≤ 100.0"
+          },
+          "y": {
+            "type": "number",
+            "minimum": -100.0,
+            "maximum": 100.0,
+            "description": "Target Y coordinate; must satisfy sqrt(x²+y²) ≤ 100.0"
+          },
+          "timestamp_client_ms": {
+            "type": "integer",
+            "description": "Client timestamp (ms); used to validate speed ≤ 20.0"
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "name": "ATTACK",
+      "direction": "request",
+      "category": "Combat",
+      "description": "Client declares attack on target; server validates and applies damage",
+      "payload_schema": {
+        "type": "object",
+        "required": ["target_id"],
+        "additionalProperties": false,
+        "properties": {
+          "target_id": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Target player ID"
+          },
+          "is_critical": {
+            "type": "boolean",
+            "description": "If true, damage *= 2.0; else damage = 50"
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "name": "SNAPSHOT",
+      "direction": "broadcast",
+      "category": "Broadcast",
+      "description": "Server broadcasts authoritative state snapshot (30 Hz); includes player positions, health, events",
+      "payload_schema": {
+        "type": "object",
+        "required": ["tick", "players"],
+        "additionalProperties": false,
+        "properties": {
+          "tick": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Server tick counter"
+          },
+          "players": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "username", "x", "y", "health", "status"],
+              "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "username": { "type": "string" },
+                "x": { "type": "number" },
+                "y": { "type": "number" },
+                "health": { "type": "integer", "minimum": 0, "maximum": 100 },
+                "status": { "type": "string", "enum": ["idle", "moving", "attacking", "dead"] }
+              }
+            }
+          },
+          "events": {
+            "type": "array",
+            "description": "Optional event log (damage, kills, status changes)",
+            "items": {
+              "type": "object",
+              "required": ["type"],
+              "properties": {
+                "type": { "type": "string", "enum": ["damage_dealt", "player_joined", "player_left", "kill"] },
+                "attacker_id": { "type": "integer" },
+                "target_id": { "type": "integer" },
+                "damage": { "type": "integer", "minimum": 50, "maximum": 100 },
+                "is_critical": { "type": "boolean" }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "name": "ERROR",
+      "direction": "response",
+      "category": "System",
+      "description": "Server reports validation failure or protocol violation",
+      "payload_schema": {
+        "type": "object",
+        "required": ["code", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": ["PROTOCOL_VERSION_MISMATCH", "INVALID_MOVE", "INVALID_ATTACK", "RATE_LIMITED", "UNAUTHORIZED", "INTERNAL_SERVER_ERROR"],
+            "description": "Error code identifier"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Human-readable error explanation"
+          },
+          "offending_seq": {
+            "type": "integer",
+            "description": "Seq of message that triggered error"
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "name": "DISCONNECT",
+      "direction": "request/response",
+      "category": "System",
+      "description": "Graceful session termination",
+      "payload_schema": {
+        "type": "object",
+        "required": ["reason"],
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": ["player_quit", "inactivity", "protocol_error", "maintenance"],
+            "description": "Disconnect reason"
+          },
+          "message": {
+            "type": "string",
+            "description": "Optional user-facing message"
+          }
+        }
+      }
+    }
+  ],
+  "error_codes": {
+    "PROTOCOL_VERSION_MISMATCH": 1001,
+    "INVALID_MOVE": 2001,
+    "INVALID_ATTACK": 2002,
+    "RATE_LIMITED": 2003,
+    "UNAUTHORIZED": 1002,
+    "INTERNAL_SERVER_ERROR": 9999
+  }
 }

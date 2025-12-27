@@ -1,0 +1,23 @@
+{
+  "id": 1,
+  "seq": 1,
+  "payload": {
+    "player_id": 42,
+    "protocol_version": 0.020,
+    "schema_version": "0.1.0",
+    "map_bounds": {
+      "max_radius": 100.0
+    },
+    "tick": 1000,
+    "existing_players": [
+      {
+        "id": 1,
+        "username": "ExistingPlayer",
+        "x": 50.0,
+        "y": 30.0,
+        "health": 100,
+        "status": "idle"
+      }
+    ]
+  }
+}

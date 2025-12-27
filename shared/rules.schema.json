@@ -2,12 +2,16 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Game Rules Schema",
   "type": "object",
-  "required": ["protocol_version", "movement", "combat"],
+  "required": ["protocol_version", "schema_version", "movement", "combat"],
   "properties": {
     "protocol_version": {
       "type": "number",
       "minimum": 0.010,
       "description": "Protocol version number for compatibility checks"
+    },
+    "schema_version": {
+      "type": "string",
+      "description": "Schema version identifier"
     },
     "movement": {
       "type": "object",
