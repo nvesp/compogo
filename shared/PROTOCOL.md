@@ -172,7 +172,7 @@ All messages use a standardized envelope:
 
 - ### Server Validation
 
-- **Bounds:** sqrt(x² + y²) ≤ 100.0 (`max_radius`)
+- **Bounds:** sqrt(x^2 + y^2) ≤ 100.0 (`max_radius`) -> `VALID_BOUNDS`
 - **Speed:** If timestamp provided, estimated speed = distance / time; if > 20.0 -> `INVALID_MOVE`
 - **Rate:** Max 1 MOVE per tick per peer
 
@@ -256,8 +256,8 @@ All messages use a standardized envelope:
 
 | Rule                | Value | Applied To | Validation                                         |
 | ------------------- | ----- | ---------- | -------------------------------------------------- |
-| max_radius          | 100.0 | MOVE       | sqrt(c2 + y2) < 100.0 -> INVALID_MOVE if exceeded  |
-| max_speed           | 20.0  | MOVE       | distance / time < 20.0 -> INVALID_MOVE if exceeded |
+| max_radius          | 100.0 | MOVE       | sqrt(c2 + y2) ≤ 100.0 -> INVALID_MOVE if exceeded  |
+| max_speed           | 20.0  | MOVE       | distance / time ≤ 20.0 -> INVALID_MOVE if exceeded |
 | base_damage         | 50    | ATTACK     | Applied each hit; crit doubles to 100              |
 | critical_multiplier | 2.0   | ATTACK     | Damage = base x multiplier if is_critical          |
 
@@ -312,7 +312,7 @@ Client -> Server: MOVE seq=2
   { "x": 45.5, "y": 32.0, "timestamp_client_ms": 1702988400500 }
 
 Server validates: 
-  - sqrt(45.5² + 32.0²) ≈ 55.5 ≤ 100.0 ✓
+  - sqrt(45.5^2 + 32.0^2) ≈ 55.5 ≤ 100.0 
   - Speed check: distance=55.5, time=50ms, speed≈1110 m/s (excessive!)
   ↓
 
@@ -329,7 +329,7 @@ Client: Rolls back position to last SNAPSHOT, displays "Movement too fast"
 Client (v0.019) -> Server (v0.020): CONNECT seq=1
   { "protocol_version": 0.019, ... }
 
-Server validates: 0.019 ≠ 0.020
+Server validates: 0.019 != 0.020
   ↓
 
 Server -> Client: ERROR seq=N
@@ -355,6 +355,7 @@ Client: Logs warning "Schema version mismatch: 1.0.0 vs 1.1.0"
 - `fish scripts/build.fish`
 - **Generates:** `shared/MessageID.cs`, `shared/MessageID.gd`, `shared/ProtocolVersion.cs`, `shared/ProtocolVersion.gd`
 - **Injects:** `protocol_version`, `schema_version` as constants
+- **Copys:** shared artifacts to `game-server/export and web-client/export` (`/shared`)
 
 - ### GOLDEN SAMPLES
 - `fish scripts/update_golden_samples.fish`
