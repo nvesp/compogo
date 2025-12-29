@@ -1,4 +1,11 @@
-# Compogo Game Protocol Specification
+# Compogo Hybrid Game Server Protocol Specification
+
+**Document Version:**
+
+- **schema_version:** 0.1.0
+- **protocol_version:** 0.020
+**Effective From:**
+- **Last Updated:** 2025-28-25
 
 ## Overview
 
@@ -11,10 +18,20 @@ This document defines the network protocol for Compogo, hybrid game server (C#/G
 - **Field:** `protocol_version` (float64, e.g., 0.020)
 - **Scope:** Game logic compatibility
 - **Enforcement:** **STRICT** Client and server must match exactly; mismatch triggers hard disconnect
+- **Current Value:** `0.020` (from `shared/rules.json`)
+- **Scope:** Affects MOVE validation, ATTACK damage, SNAPSHOT state semantics
+- **Handshake:** Exchanged during CONNECT/HANDSHAKE_ACK
+- **Mismatch Behavior:** **HARD DISCONNECT** (no backward compatibility for MVP)
+  - Server sends `ERROR` with code `PROTOCOL_VERSION_MISMATCH`
+  - **Client displays modal:** "Client version incompatible; auto-update required"
+  - Connection closes immediately after `ERROR`
 - **Bump Policy:** Increment only on breaking game mechanic changes (movement rules, damage calculation, etc.)
+  - **Breaking change:** bump; half semantic ver (0.020 - 0.030) 0.03.0 
+  - **BUG FIX/PATCHES:** bump; half semantic ver (0.020 - 0.021) 0.02.1 
+  - **MAJOR PATCH RELS:** bump; half semantic ver (0.021 - 1.000) 1.00.0
 - **Client Behavior on Mismatch:** Display error, disconnect, and inform user that auto-update is required
 
-**Example:** Client protocol_version 0.019 connecting to server 0.020 triggers ERROR(PROTOCOL_VERSION_MISMATCH) and hard disconnect.
+**Example:** Client `protocol_version` 0.019 connecting to server 0.020 triggers `ERROR`(`PROTOCOL_VERSION_MISMATCH`) and hard disconnect.
 
 ### Schema Version
 
@@ -22,7 +39,11 @@ This document defines the network protocol for Compogo, hybrid game server (C#/G
 - **Scope:** Tooling, validation, and message structure
 - **Enforcement:** **PERMISSIVE** Client warns on mismatch but does NOT disconnect
 - **Bump Policy:** Increment on message schema changes (new fields, validation updates, etc.) that don't affect game logic
+  - **Breaking change:** bump major semantic ver (0.1.0 - 1.0.0)
+  - **Backward-compatible change:** bump minor semantic ver (0.1.0 -> 0.2.0)
+  - **BUG FIX/PATCHES:** bump patch semantic ver (0.2.0 -> 0.2.1)
 - **Client Behavior on Mismatch:** Log warning, display optional UI notification, but continue operation
+**Migration Strategy:** When `shared/message_ids.json` exceeds ~5 KB, split schemas to external files; use JSON Schema `$ref` syntax
 
 **Example:** Client schema_version "1.0.0" connected to server schema_version "1.1.0"; client logs "Warning: schema version mismatch (1.0.0 vs 1.1.0)" but continues normal gameplay.
 
@@ -52,10 +73,25 @@ All messages use a standardized envelope:
 
 ### Client Responsibility
 
-- **Increment before each send; globally monotonic per session**
-- **No Reset:** Continues across entire session; resets to 1 on reconnect
-- **Server Validation:** Warn-only on gaps (>5) or duplicates; do NOT disconnect on seq anomalies
-- **Use Cases:** Message deduplication on reconnect, out-of-order detection, request-response pairing
+- **Initialize `seq = 1` on `CONNECT`**
+- **Increment before each message send (`CONNECT`, `MOVE`, `ATTACK`, `DISCONNECT`, etc); globally monotonic per session**
+- Reset to `seq = 1` on new session (after reconnect)
+
+### Server Validation: Warn-only on gaps (>5) or duplicates; do NOT disconnect on `seq` anomalies
+
+- Track `last_seq_received[peer_id]` per connected client
+- **On receipt:**
+  - **Duplicate** (`seq` ≤ `last_seq`): Log warning; process idempotently (`dedup` on reconnect)
+  - **Gap** (`seq` > `last_seq` + 5): Log warning; process anyway (tolerance for packet loss)
+  - **Always update:**
+  `last_seq_received[peer_id] = incoming_seq`
+
+- **Use Cases:** 
+  - Message deduplication on client reconnect
+  - Out-of-order detection and logging
+  - Request-response pairing
+  - **Implicit ACKs:** `SNAPSHOT seq` ≥ N implicitly acks all prior requests
+  - **Debug correlation:** `seq` matches log entries client ↔ server
   
 ### Example Seq Flow
 
@@ -85,9 +121,12 @@ All messages use a standardized envelope:
 
 - ### Server Validation
 
-- `protocol_version` must match server **eg:** (0.020)
-- `username` must be unique and not already in session
-- `client_id` enables deduplication on reconnect
+- `protocol_version` must equal `shared/rules.json` `protocol_version` (0.020)
+- **Mismatch:** Send `ERROR(PROTOCOL_VERSION_MISMATCH)` -> hard disconnect immediately
+- **Client action:** Show modal "Version incompatible; upgrade required"; disable reconnect
+- `username` must be 1–32 ASCII alphanumeric + underscores; unique in current lobby
+- **Duplicate:** Send `ERROR(PLAYER_ALREADY_CONNECTED)` -> suggest rename
+- `client_id` must be non-empty string (UUID or ephemeral ID for dedup)
 
 - ### Server Response
 
@@ -112,6 +151,13 @@ All messages use a standardized envelope:
   "existing_players": [ { "id", "username", "x", "y", "health", "status" }, ... ]
 }
 ```
+**Fields:**
+- `player_id` (int32): Server-assigned unique ID for this session
+- `protocol_version` (float): Echo from `CONNECT` (game logic version)
+- `schema_version` (string): Server's schema version (informational; mismatch = warning-only)
+- `map_bounds.max_radius` (float): Copy from `shared/rules.json` `movement.max_radius`
+- `tick` (int32): Current server tick counter
+- `existing_players` (array): Snapshot of all active players
 
 - ### Client Behavior
 
@@ -141,7 +187,7 @@ All messages use a standardized envelope:
 ### DISCONNECT (ID 6)
 
 - **Direction:** Client <-> Server
-- **Purpose:** Graceful session termination
+- **Purpose:** Session termination
 
 - ### Payload Schema
 
@@ -151,6 +197,12 @@ All messages use a standardized envelope:
   "message": <string optional>
 }
 ```
+
+**Reasons:** `player_quit`, `inactivity`, `protocol_error`, `maintenance`
+
+**Client Behavior:** Stop sending heartbeats; remove player from local state; close socket
+
+**Server Behavior:** Mark player inactive; remove from next SNAPSHOT; free resources
 
 ---
 
@@ -191,8 +243,8 @@ All messages use a standardized envelope:
 
 ```json
 {
-  "target_id": <int32>,
-  "is_critical": <boolean optional>
+ "target_id": <int32>,
+ "is_critical": <boolean optional>
 }
 ```
 
@@ -314,6 +366,11 @@ Client -> Server: MOVE seq=2
 Server validates: 
   - sqrt(45.5^2 + 32.0^2) ≈ 55.5 ≤ 100.0 
   - Speed check: distance=55.5, time=50ms, speed≈1110 m/s (excessive!)
+  - if time stamp provided:
+    `distance = sqrt((x - last_x)² + (y - last_y)²)`
+    `elapsed_ms = server_time - client_timestamp`
+    `estimated_speed = (distance / elapsed_ms) × 1000` (convert ms to seconds)
+    Fail if: `estimated_speed > max_speed` (20.0 from rules) → ERROR(INVALID_MOVE, "Speed exceeds max_speed")
   ↓
 
 Server -> Client: ERROR seq=N
