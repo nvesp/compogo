@@ -6,6 +6,8 @@ set ROOT (pwd)
 set SHARED "$ROOT/shared"
 set SERVER "$ROOT/game-server"
 set CLIENT "$ROOT/web-client"
+set SERVER_SCRIPTS "$SERVER/scripts"
+set CLIENT_SCRIPTS "$CLIENT/scripts"
 set SERVER_EXPORT "$SERVER/export"
 set CLIENT_EXPORT "$CLIENT/export"
 
@@ -38,7 +40,7 @@ function generate_message_enums
     echo "Generating message enums (protocol_version: $pversion, schema_version: $sversion)..."
     
     # Generate C# MessageID enum
-    set csharp_file "$SHARED/MessageID.cs"
+    set csharp_file "$SERVER_SCRIPTS/MessageIDcs"
     echo "// Auto-generated from shared/message_ids.json; DO NOT EDIT" > $csharp_file
     echo "// Protocol Version: $pversion | Schema Version: $sversion" >> $csharp_file
     echo "" >> $csharp_file
@@ -59,7 +61,7 @@ function generate_message_enums
     echo "Generated $csharp_file"
     
     # Generate GDScript MessageID constants
-    set gdscript_file "$SHARED/MessageID.gd"
+    set gdscript_file "$CLIENT_SCRIPTS/MessageID.gd" 
     echo "# Auto-generated from shared/message_ids.json; DO NOT EDIT" > $gdscript_file
     echo "# Protocol Version: $pversion | Schema Version: $sversion" >> $gdscript_file
     echo "" >> $gdscript_file
@@ -93,7 +95,7 @@ function stamp_protocol_version
     echo "Stamping protocol version: $pversion (schema: $sversion)..."
     
     # Generate C# ProtocolVersion class
-    set cs_file "$SHARED/ProtocolVersion.cs"
+    set cs_file "$SERVER_SCRIPTS/ProtocolVersion.cs"
     echo "// Auto-generated from shared/rules.json; DO NOT EDIT" > $cs_file
     echo "public static class ProtocolVersion" >> $cs_file
     echo "{" >> $cs_file
@@ -103,15 +105,14 @@ function stamp_protocol_version
     echo "Generated $cs_file"
     
     # Generate GDScript ProtocolVersion constants
-    set gd_file "$SHARED/ProtocolVersion.gd"
+    set gd_file "$CLIENT_SCRIPTS/ProtocolVersion.gd"
     echo "# Auto-generated from shared/rules.json; DO NOT EDIT" > $gd_file
     echo "const PROTOCOL_VERSION = $pversion" >> $gd_file
     echo "const SCHEMA_VERSION = \"$sversion\"" >> $gd_file
     echo "Generated $gd_file"
     
-    # Stamp version files in export folders
-    echo "v$pversion" > $SERVER_EXPORT/version.txt
-    echo "v$pversion" > $CLIENT_EXPORT/version.txt
+    # Stamp version file in shared folder
+    echo "v$pversion" > $SHARED/protocol_version.txt
 end
 
 function copy_protocol_artifacts
@@ -121,10 +122,8 @@ function copy_protocol_artifacts
     for target in $SERVER_EXPORT $CLIENT_EXPORT
         mkdir -p $target
         cp $SHARED/rules.json $target/ 2>/dev/null || true
-        cp $SHARED/MessageID.cs $target/ 2>/dev/null || true
-        cp $SHARED/MessageID.gd $target/ 2>/dev/null || true
-        cp $SHARED/ProtocolVersion.cs $target/ 2>/dev/null || true
-        cp $SHARED/ProtocolVersion.gd $target/ 2>/dev/null || true
+        cp $SHARED/message_ids.json $target/ 2>/dev/null || true
+        cp $SHARED/protocol_version.txt $target/ 2>/dev/null || true
     end
     
     echo "Protocol artifacts copied to export folders"
@@ -147,15 +146,7 @@ function validate_message_ids_json
         exit 1
     end
     
-    echo "✅ message_ids.json is valid"
-end
-
-function stamp_version
-    set pversion (jq '.protocol_version' $SHARED/rules.json)
-    echo "Protocol version: v$pversion"
-    echo $pversion > $SHARED/protocol_version.txt
-    echo $pversion > $SERVER_EXPORT/version.txt
-    echo $pversion > $CLIENT_EXPORT/version.txt
+    echo "message_ids.json is valid"
 end
 
 function build_server
@@ -203,9 +194,9 @@ end
 # Combined workflow
 #validate_rules fix these 
 validate_message_ids_json
-copy_protocol_artifacts
 generate_message_enums
 stamp_protocol_version
+copy_protocol_artifacts
 check_protocol_drift
 #build_server still working on export templates
 #build_client still working on export templates
