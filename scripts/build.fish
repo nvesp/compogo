@@ -113,6 +113,7 @@ function stamp_protocol_version
     
     # Stamp version file in shared folder
     echo "v$pversion" > $SHARED/protocol_version.txt
+    echo "v$sversion" > $SHARED/schema_version.txt
 end
 
 function copy_protocol_artifacts
@@ -124,6 +125,7 @@ function copy_protocol_artifacts
         cp $SHARED/rules.json $target/ 2>/dev/null || true
         cp $SHARED/message_ids.json $target/ 2>/dev/null || true
         cp $SHARED/protocol_version.txt $target/ 2>/dev/null || true
+        cp $SHARED/schema_version.txt $target/ 2>/dev/null || true
     end
     
     echo "Protocol artifacts copied to export folders"
@@ -175,12 +177,12 @@ end
 # CHECK schema drift function
 function check_schema_drift
     set current_sversion (jq '.schema_version' $SHARED/rules.json)
-    set last_sversion (cat $SERVER_EXPORT/version.txt)
+    set last_sversion (cat $SERVER_EXPORT/schema_version.txt)
     if test "$current_sversion" != "$last_sversion"
-        echo "Server Protocol drift detected: $last_sversion -> $current_sversion"
+        echo "Server schema drift detected: $last_sversion -> $current_sversion"
         exit 1
     else
-        echo "No server protocol drift detected"
+        echo "No server schema drift detected"
     end
 end
 
@@ -196,8 +198,9 @@ end
 validate_message_ids_json
 generate_message_enums
 stamp_protocol_version
-copy_protocol_artifacts
 check_protocol_drift
+copy_protocol_artifacts
+#maybe put check_protocol_drift before stamp_protocol_version?
 #build_server still working on export templates
 #build_client still working on export templates
 
