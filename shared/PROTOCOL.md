@@ -26,8 +26,8 @@ This document defines the network protocol for Compogo, hybrid game server (C#/G
   - **Client displays modal:** "Client version incompatible; auto-update required"
   - Connection closes immediately after `ERROR`
 - **Bump Policy:** Increment only on breaking game mechanic changes (movement rules, damage calculation, etc.)
-  - **Breaking change:** bump; half semantic ver (0.020 - 0.030) 0.03.0 
-  - **BUG FIX/PATCHES:** bump; half semantic ver (0.020 - 0.021) 0.02.1 
+  - **Breaking change:** bump; half semantic ver (0.020 - 0.030) 0.03.0
+  - **BUG FIX/PATCHES:** bump; half semantic ver (0.020 - 0.021) 0.02.1
   - **MAJOR PATCH RELS:** bump; half semantic ver (0.021 - 1.000) 1.00.0
 - **Client Behavior on Mismatch:** Display error, disconnect, and inform user that auto-update is required
 
@@ -86,7 +86,7 @@ All messages use a standardized envelope:
   - **Always update:**
   `last_seq_received[peer_id] = incoming_seq`
 
-- **Use Cases:** 
+- **Use Cases:**
   - Message deduplication on client reconnect
   - Out-of-order detection and logging
   - Request-response pairing
@@ -139,7 +139,7 @@ All messages use a standardized envelope:
 - **Direction:** Server -> Client
 - **Purpose:** Confirm connection; supply initial state
 
-- ### Payload Schema
+- ### HANDSHAKE_ACK Payload Schema
 
 ```json
 {
@@ -151,7 +151,9 @@ All messages use a standardized envelope:
   "existing_players": [ { "id", "username", "x", "y", "health", "status" }, ... ]
 }
 ```
+
 **Fields:**
+
 - `player_id` (int32): Server-assigned unique ID for this session
 - `protocol_version` (float): Echo from `CONNECT` (game logic version)
 - `schema_version` (string): Server's schema version (informational; mismatch = warning-only)
@@ -171,7 +173,7 @@ All messages use a standardized envelope:
 - **Direction:** Server -> Client
 - **Purpose:** Report validation failure or protocol violation
 
-- ### Payload Schema
+- ### ERROR Payload Schema
 
 ### Error Codes & Triggers
 
@@ -189,7 +191,7 @@ All messages use a standardized envelope:
 - **Direction:** Client <-> Server
 - **Purpose:** Session termination
 
-- ### Payload Schema
+- ### DISCONNECT Payload Schema
 
 ```json
 {
@@ -213,7 +215,7 @@ All messages use a standardized envelope:
 - **Direction:** Client -> Server
 - **Purpose:** Movement input; server validates and broadcasts
 
-- ### Payload Schema
+- ### MOVE Payload Schema
 
 ```json
 {  "x": <float32 -100.0 to +100.0>,  
@@ -222,13 +224,13 @@ All messages use a standardized envelope:
 }
 ```
 
-- ### Server Validation
+- ### MOVE Server Validation
 
 - **Bounds:** sqrt(x^2 + y^2) ≤ 100.0 (`max_radius`) -> `VALID_BOUNDS`
 - **Speed:** If timestamp provided, estimated speed = distance / time; if > 20.0 -> `INVALID_MOVE`
 - **Rate:** Max 1 MOVE per tick per peer
 
-- ### Server Response
+- ### MOVE Server Response
 
 - `SNAPSHOT` (with updated position) or `ERROR`
 
@@ -239,7 +241,7 @@ All messages use a standardized envelope:
 - **Direction:** Client -> Server
 - **Purpose:** Attack target; server validates and applies damage
 
-- ### Payload Schema
+- ### ATTACK Payload Schema
 
 ```json
 {
@@ -254,12 +256,12 @@ All messages use a standardized envelope:
 - **If is_critical:** 2.0 (`rules.combat.is_critical`) `damage` = `base_damage` × 2.0 = 100
 - **Else:** `damage` = 50
 
-- ### Server Validation
+- ### ATTACK Server Validation
 
 - Target exists and `health` > 0
 - Apply `damage`; broadcast in `SNAPSHOT`
 
-- ### Server Response
+- ### ATTACK Server Response
 
 - `SNAPSHOT` (with updated `health`) or `ERROR`
 
@@ -273,7 +275,7 @@ All messages use a standardized envelope:
 - **Purpose:** Authoritative state broadcast
 - **Broadcast Frequency:** 30 Hz (every ~33 ms)
 
-- ### Payload Schema
+- ### BROADCAST Payload Schema
 
 ```json
 {
@@ -409,17 +411,20 @@ Client: Logs warning "Schema version mismatch: 1.0.0 vs 1.1.0"
 ## BUILD AND TEST
 
 - ### BUILD
+
 - `fish scripts/build.fish`
 - **Generates:** `shared/MessageID.cs`, `shared/MessageID.gd`, `shared/ProtocolVersion.cs`, `shared/ProtocolVersion.gd`
 - **Injects:** `protocol_version`, `schema_version` as constants
 - **Copys:** shared artifacts to `game-server/export and web-client/export` (`/shared`)
 
 - ### GOLDEN SAMPLES
+
 - `fish scripts/update_golden_samples.fish`
 - **Regenerates:** `shared/golden/message_*.json` files
 - **Validates:** positive samples pass, negative samples fail with correct error codes
 
 - ### CI validation
+
 - **CI ensures:**
 - `message_ids.json` schema is valid
 - `rules.json` matches `rules.schema.json`
@@ -812,7 +817,7 @@ Per-message logging (validation failures only):
 ### On Bump Workflow
 
 1. Update `shared/rules.json`: increment `protocol_version` and/or `schema_version`
-2. Run build: `fish scripts/build.fish`
+2. Run build: `fish scripts/build.fish` with `--update-protocol` flag
    - Generates new enums (`MessageID.cs`, `MessageID.gd`)
    - Stamps new version into `ProtocolVersion.cs/ProtocolVersion.gd`
    - Copies artifacts to `export/` for CI
@@ -820,6 +825,7 @@ Per-message logging (validation failures only):
 4. Commit updates to git
 5. Create git tag: `git tag v0.021` (if protocol_version bumped)
 6. **If `protocol_version` bumped:** Document that client auto-update is required
+7. Run without flag to check for protocol-drift, use for everyday builds that don't update the protocol
 
 ---
 
