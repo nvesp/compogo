@@ -839,7 +839,7 @@ Per-message logging (validation failures only):
 
 ---
 
-## See also Shared-PROTOCOL files for rules validation etc.
+## See also Shared-PROTOCOL files for rules validation etc
 
 - [shared/message_ids.json](message_ids.json) - Authoritative message enum/consts definitions and payload schemas
 - [shared/rules.json](rules.json) - Game rule constants (max_radius, max_speed, etc.)
